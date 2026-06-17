@@ -3,8 +3,6 @@ package com.vhostguard.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
-import com.vhostguard.VhostGuard;
-import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -15,6 +13,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Simple JSON config for allowed hostnames and the kick message.
@@ -22,43 +22,46 @@ import java.util.Locale;
  */
 public class ModConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final Path CONFIG_PATH = FabricLoader.getInstance().getConfigDir().resolve("vhost-guard.json");
+    private static final String CONFIG_FILE_NAME = "vhost-guard.json";
 
     // Default example host. Replace it with your actual domain.
     private List<String> allowedHosts = new ArrayList<>(List.of("mc.example.com"));
     private String kickMessage = "Connect via the allowed domain. (You tried: %host%)";
 
-    public static ModConfig load() {
-        if (!Files.exists(CONFIG_PATH)) {
-            // No config yet? Create one with the defaults so the user can edit it.
+    public static ModConfig load(Path dataDirectory, Logger logger) {
+        Path configPath = dataDirectory.resolve(CONFIG_FILE_NAME);
+
+        if (!Files.exists(configPath)) {
             ModConfig config = new ModConfig();
-            config.save();
+            config.validate();
+            config.save(configPath, logger);
             return config;
         }
 
-        try (Reader reader = Files.newBufferedReader(CONFIG_PATH, StandardCharsets.UTF_8)) {
+        try (Reader reader = Files.newBufferedReader(configPath, StandardCharsets.UTF_8)) {
             ModConfig config = GSON.fromJson(reader, ModConfig.class);
             if (config == null) {
-                // Empty file fallback. Better defaults than a crash.
                 config = new ModConfig();
             }
             config.validate();
-            config.save();
+            config.save(configPath, logger);
             return config;
         } catch (IOException | JsonSyntaxException e) {
-            VhostGuard.LOGGER.error("Failed to load Vhost Guard config, using defaults.", e);
-            return new ModConfig();
+            logger.log(Level.SEVERE, "Failed to load Vhost Guard config, using defaults.", e);
+            ModConfig config = new ModConfig();
+            config.validate();
+            return config;
         }
     }
 
-    public void save() {
+    private void save(Path configPath, Logger logger) {
         try {
-            Files.createDirectories(CONFIG_PATH.getParent());
-            try (Writer writer = Files.newBufferedWriter(CONFIG_PATH, StandardCharsets.UTF_8)) {
+            Files.createDirectories(configPath.getParent());
+            try (Writer writer = Files.newBufferedWriter(configPath, StandardCharsets.UTF_8)) {
                 GSON.toJson(this, writer);
             }
         } catch (IOException e) {
-            VhostGuard.LOGGER.error("Failed to save Vhost Guard config.", e);
+            logger.log(Level.SEVERE, "Failed to save Vhost Guard config.", e);
         }
     }
 
@@ -72,8 +75,9 @@ public class ModConfig {
 
         List<String> normalized = new ArrayList<>();
         for (String host : allowedHosts) {
-            if (host != null && !host.isBlank()) {
-                normalized.add(host.toLowerCase(Locale.ROOT));
+            String normalizedHost = normalizeHost(host);
+            if (normalizedHost != null) {
+                normalized.add(normalizedHost);
             }
         }
         allowedHosts = normalized;
@@ -96,18 +100,17 @@ public class ModConfig {
      * and a bare '*' wildcard that lets everything through (mostly for testing).
      */
     public boolean isAllowed(String host) {
-        if (host == null) {
+        String normalized = normalizeHost(host);
+        if (normalized == null) {
             return false;
         }
 
-        String normalized = host.toLowerCase(Locale.ROOT);
         if (allowedHosts.contains(normalized) || allowedHosts.contains("*")) {
             return true;
         }
 
         for (String allowed : allowedHosts) {
             if (allowed.startsWith("*.")) {
-                // "*.example.com" should match "play.example.com" but not "example.com" itself.
                 String suffix = allowed.substring(1); // .example.com
                 if (normalized.endsWith(suffix)) {
                     return true;
@@ -116,5 +119,50 @@ public class ModConfig {
         }
 
         return false;
+    }
+
+    private static String normalizeHost(String host) {
+        if (host == null || host.isBlank()) {
+            return null;
+        }
+
+        String normalized = host.trim().toLowerCase(Locale.ROOT);
+
+        // Strip data after NUL byte (some proxies/clients append extra data).
+        int nullByteIndex = normalized.indexOf('\0');
+        if (nullByteIndex >= 0) {
+            normalized = normalized.substring(0, nullByteIndex);
+        }
+
+        // Strip bracketed IPv6 and host:port suffix.
+        if (normalized.startsWith("[")) {
+            int closingBracket = normalized.indexOf(']');
+            if (closingBracket > 1) {
+                normalized = normalized.substring(1, closingBracket);
+            }
+        } else {
+            int lastColon = normalized.lastIndexOf(':');
+            if (lastColon > -1 && normalized.indexOf(':') == lastColon && isPort(normalized.substring(lastColon + 1))) {
+                normalized = normalized.substring(0, lastColon);
+            }
+        }
+
+        if (normalized.endsWith(".")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+
+        return normalized.isBlank() ? null : normalized;
+    }
+
+    private static boolean isPort(String value) {
+        if (value.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            if (!Character.isDigit(value.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 }

@@ -1,34 +1,40 @@
 package com.vhostguard;
 
 import com.vhostguard.config.ModConfig;
-import net.fabricmc.api.DedicatedServerModInitializer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import net.kyori.adventure.text.Component;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
+import org.bukkit.plugin.java.JavaPlugin;
 
 /**
- * Server-side entry point for Vhost Guard.
- * Nothing fancy here: load the config and let the mixin do the kicking.
+ * Paper entry point for Vhost Guard.
+ * Loads the JSON config and rejects logins that did not use an allowed hostname.
  */
-public class VhostGuard implements DedicatedServerModInitializer {
-    public static final String MOD_ID = "vhost-guard";
-    public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
-
-    private static ModConfig config;
+public final class VhostGuard extends JavaPlugin implements Listener {
+    private ModConfig config;
 
     @Override
-    public void onInitializeServer() {
-        config = ModConfig.load();
-        LOGGER.info("Vhost Guard loaded. Allowed hosts: {}", config.getAllowedHosts());
+    public void onEnable() {
+        config = ModConfig.load(getDataFolder().toPath(), getLogger());
+        getServer().getPluginManager().registerEvents(this, this);
+        getLogger().info("Vhost Guard loaded. Allowed hosts: " + config.getAllowedHosts());
     }
 
     /**
-     * Lazy fallback: if the mixin somehow fires before init, load config on demand.
-     * In practice this should not happen, but it costs nothing to be safe.
+     * Paper exposes the hostname from the client's handshake during async pre-login.
+     * Status pings do not fire this event, so the server list remains unaffected.
      */
-    public static ModConfig getConfig() {
-        if (config == null) {
-            config = ModConfig.load();
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onAsyncPlayerPreLogin(AsyncPlayerPreLoginEvent event) {
+        String host = event.getHostname();
+        if (config.isAllowed(host)) {
+            return;
         }
-        return config;
+
+        String attemptedHost = host == null || host.isBlank() ? "unknown" : host;
+        String message = config.getKickMessage().replace("%host%", attemptedHost);
+        event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, Component.text(message));
     }
 }

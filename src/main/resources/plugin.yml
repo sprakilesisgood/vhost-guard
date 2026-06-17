@@ -1,0 +1,10 @@
+name: VhostGuard
+version: ${version}
+main: com.vhostguard.VhostGuard
+api-version: '1.21'
+load: STARTUP
+description: Blocks players connecting via raw IP, allowing only configured virtual hosts.
+author: VhostGuard
+website: https://github.com/sprakilesisgood/vhost-guard
+libraries:
+  - com.google.code.gson:gson:${gson_version}
