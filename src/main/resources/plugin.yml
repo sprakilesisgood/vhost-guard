@@ -3,7 +3,7 @@ version: ${version}
 main: com.vhostguard.VhostGuard
 api-version: '1.21'
 load: STARTUP
-description: Blocks players connecting via raw IP, allowing only configured virtual hosts.
+description: Kick logins that do not use an allowed hostname.
 author: VhostGuard
 website: https://github.com/sprakilesisgood/vhost-guard
 libraries:

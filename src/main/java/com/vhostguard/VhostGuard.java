@@ -10,7 +10,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 /**
  * Paper entry point for Vhost Guard.
- * Loads the JSON config and rejects logins that did not use an allowed hostname.
+ * Loads the config and kicks logins that did not use an allowed hostname.
  */
 public final class VhostGuard extends JavaPlugin implements Listener {
     private ModConfig config;
@@ -24,7 +24,7 @@ public final class VhostGuard extends JavaPlugin implements Listener {
 
     /**
      * Paper exposes the hostname from the client's handshake during async pre-login.
-     * Status pings do not fire this event, so the server list remains unaffected.
+     * Status pings do not fire this event, so the server list stays unaffected.
      */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onAsyncPlayerPreLogin(AsyncPlayerPreLoginEvent event) {

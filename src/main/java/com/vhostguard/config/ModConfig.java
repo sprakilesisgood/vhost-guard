@@ -17,8 +17,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Simple JSON config for allowed hostnames and the kick message.
- * Gson handles serialization; we just validate and normalize after loading.
+ * JSON config for allowed hostnames and the kick message.
+ * Gson handles serialization; validation and normalization happen after loading.
  */
 public class ModConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -111,6 +111,7 @@ public class ModConfig {
 
         for (String allowed : allowedHosts) {
             if (allowed.startsWith("*.")) {
+                // "*.example.com" matches "play.example.com" but not "example.com" itself.
                 String suffix = allowed.substring(1); // .example.com
                 if (normalized.endsWith(suffix)) {
                     return true;
@@ -128,13 +129,13 @@ public class ModConfig {
 
         String normalized = host.trim().toLowerCase(Locale.ROOT);
 
-        // Strip data after NUL byte (some proxies/clients append extra data).
+        // Some proxies/clients append extra handshake data after a NUL byte.
         int nullByteIndex = normalized.indexOf('\0');
         if (nullByteIndex >= 0) {
             normalized = normalized.substring(0, nullByteIndex);
         }
 
-        // Strip bracketed IPv6 and host:port suffix.
+        // Strip bracketed IPv6 addresses and simple host:port suffixes.
         if (normalized.startsWith("[")) {
             int closingBracket = normalized.indexOf(']');
             if (closingBracket > 1) {
