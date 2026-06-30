@@ -29,7 +29,7 @@ Then build:
 gradlew.bat build # Windows
 ```
 
-The jar ends up in `build/libs/vhost-guard-2.0.0.jar`. Put it in your server's `plugins/` folder. Players do not need it on their client.
+The jar ends up in `build/libs/vhost-guard-3.0.0.jar`. Put it in your server's `plugins/` folder. Players do not need it on their client.
 
 ## Configuration
 
@@ -48,13 +48,20 @@ Example:
 ```
 
 - `allowedHosts`: hostnames that are allowed to join. `*.example.com` matches any subdomain, and a bare `*` allows everything.
-- `kickMessage`: the message rejected players see. `%host%` is replaced with the address they connected to.
+- `kickMessage`: the message rejected players see. `%host%` is replaced with the address they connected to. Supports [MiniMessage](https://docs.advntr.dev/minimessage/format.html) formatting (e.g. `<red>`, `<bold>`).
+
+## Commands
+
+| Command | Permission | Description |
+|---------|-----------|-------------|
+| `/vhostguard reload` | `vhostguard.admin` (default: op) | Reload config without restarting |
 
 ## Notes
 
 - Server-side only. Players do not need it on their client.
 - Server-list status pings still work normally.
 - The check runs during Paper's async pre-login event, before the player fully joins.
+- Blocked connection attempts are logged to the server console with the player name and the hostname they used.
 
 ## License
 

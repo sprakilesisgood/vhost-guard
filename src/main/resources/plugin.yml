@@ -8,3 +8,13 @@ author: VhostGuard
 website: https://github.com/sprakilesisgood/vhost-guard
 libraries:
   - com.google.code.gson:gson:${gson_version}
+commands:
+  vhostguard:
+    description: Manage Vhost Guard
+    usage: /vhostguard [reload]
+    permission: vhostguard.admin
+    permission-message: You don't have permission to use this command.
+permissions:
+  vhostguard.admin:
+    description: Allows reloading Vhost Guard config
+    default: op
